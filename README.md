@@ -1,6 +1,6 @@
 # haunted-terminal
 
-A ghost lives in your zsh. It watches the commands you run and whispers about them. Before you run something you cannot take back, it asks if you are sure.
+When you open a terminal, an ASCII ghost rises out of the dark and a haunting loop starts to play. Then it stays. It watches the commands you run and whispers about them. Before you run something you cannot take back, it asks if you are sure.
 
 The ghost is [Gemma 4](https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF), running on your own machine through [llama.cpp](https://github.com/ggml-org/llama.cpp). Your shell history never leaves your laptop.
 
@@ -38,12 +38,16 @@ Built for the [DEV Hacktoberfest Open-Source AI Challenge, Week 4: Ghost in the 
 - `ghost.zsh` adds two zsh hooks. `precmd` sends the last command and its exit code to `ghost speak`. A wrapped `accept-line` widget runs `ghost check` before Enter, and asks you to confirm if the command is risky.
 - `ghost` is one Python file with no dependencies. It calls llama-server's OpenAI-compatible endpoint with a ghost persona, and prints the reply in dim italics.
 - The risky-command check is plain regex, not the model. It must be instant and must never hallucinate.
+- The intro is a signed distance field (a circle head, a body with a wavy hem) drawn in `@$%` and lit with a violet halo, 24 frames a second.
+- The music is composed by the code on first run: a D minor drone with a sour E-flat, filtered wind, and a detuned music box with echoes. Every frequency loops in a whole number of cycles, so the 48-second loop has no seam. One player serves all your terminal tabs and stops when the last one closes.
 - If llama-server is not running, the ghost stays silent. It never blocks your shell.
 
 ## Settings
 
 | Variable | Default | What it does |
 |---|---|---|
+| `GHOST_INTRO` | on | `0` skips the ghost animation when a terminal opens. |
+| `GHOST_MUSIC` | on | `0` turns off the background music. `ghost hush` stops it right now. |
 | `GHOST_CHANCE` | `0.35` | Chance the ghost comments on a command. `1` for every command. |
 | `GHOST_URL` | `http://127.0.0.1:8080/v1/chat/completions` | Any OpenAI-compatible endpoint. |
 | `GHOST_VOICE` | off | `say` for the offline macOS whisper, `elevenlabs` for an ElevenLabs voice. |

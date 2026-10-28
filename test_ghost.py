@@ -1,7 +1,10 @@
 import json
 import os
+import re
+import tempfile
 import threading
 import unittest
+import wave
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
@@ -55,6 +58,29 @@ class TestGhost(unittest.TestCase):
             self.assertFalse(FakeGemma.last["chat_template_kwargs"]["enable_thinking"])
         finally:
             server.shutdown()
+
+    def test_ghost_frame_shape(self):
+        frame = ghost.ghost_frame(1.0, 50, 22)
+        plain = [re.sub(r"\033\[[0-9;]*m", "", line) for line in frame]
+        self.assertEqual(len(plain), 22)
+        self.assertTrue(all(len(line) == 50 for line in plain))
+        self.assertIn("@", "".join(plain))
+
+    def test_compose_writes_a_loop(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "haunt.wav")
+            ghost.compose(path, seconds=4, rate=8000)
+            with wave.open(path) as f:
+                self.assertEqual(f.getnframes(), 4 * 8000)
+
+    def test_music_lock(self):
+        with tempfile.TemporaryDirectory() as d:
+            lock = os.path.join(d, "music.pid")
+            self.assertTrue(ghost._take_lock(lock))
+            self.assertFalse(ghost._take_lock(lock))  # held by this live process
+            with open(lock, "w") as f:
+                f.write("999999")  # a player that died without cleaning up
+            self.assertTrue(ghost._take_lock(lock))
 
     def test_speak_is_silent_without_server(self):
         ghost.URL = "http://127.0.0.1:9/nothing"

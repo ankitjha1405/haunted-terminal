@@ -4,20 +4,29 @@
   ghost speak <exit_code> <command>   comment on a command that just ran
   ghost check <command>               exit 1 and print a warning if the command is risky
   ghost voice <text>                  say a line aloud (used internally, runs in the background)
+  ghost intro                         play the ghost animation
+  ghost music <shell_pid>             loop the haunting music while haunted shells are open
+  ghost hush                          stop the music
 """
+import array
 import json
+import math
 import os
 import random
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
+import wave
 
 URL = os.environ.get("GHOST_URL", "http://127.0.0.1:8080/v1/chat/completions")
 CHANCE = float(os.environ.get("GHOST_CHANCE", "0.35"))
 VOICE = os.environ.get("GHOST_VOICE", "")  # "", "say" or "elevenlabs"
+CACHE = os.path.expanduser("~/.cache/ghost")
 
 SYSTEM = (
     "You are the ghost of a programmer who died in 1987 at a VT100 terminal, "
@@ -93,6 +102,202 @@ def voice(text):
         os.unlink(f.name)
 
 
+# --- the intro: an ASCII ghost drawn from a distance field, floating in its own glow ---
+
+BODY = "@$$%"
+HALO = "+=~x*o"
+EYE = (0.17, -0.2, 0.065, 0.1)  # x offset, y, x radius, y radius
+
+
+def _noise(i, j, k):
+    return ((i * 73856093) ^ (j * 19349663) ^ (k * 83492791)) % 1000 / 1000
+
+
+def _ghost_distance(x, y, t):
+    """Signed distance to the ghost's outline: negative inside."""
+    head = math.hypot(x, y + 0.2) - 0.5
+    hem = 0.55 + 0.07 * math.sin(x * 11 - t * 5)  # the wavy bottom edge
+    body = max(abs(x) - 0.5, y - hem, -0.2 - y)
+    return min(head, body)
+
+
+def ghost_frame(t, w, h, visible=1.0):
+    """One frame of the ghost as `h` lines of `w` cells, with ANSI colour."""
+    bob = 0.06 * math.sin(t * 2.4)
+    blink = (t % 2.2) < 0.15
+    tick = int(t * 12)
+    lines = []
+    for j in range(h):
+        y = (j - h / 2) / (h / 2) * 1.05 - bob
+        cells = []
+        for i in range(w):
+            x = (i - w / 2) / h  # terminal cells are about twice as tall as wide
+            d = _ghost_distance(x, y, t)
+            n = _noise(i, j, tick)
+            if n > visible:
+                cells.append(" ")
+            elif d < 0:
+                ex, ey, rx, ry = EYE
+                ry = 0.012 if blink else ry
+                in_eye = any(((x - cx) / rx) ** 2 + ((y - ey) / ry) ** 2 < 1 for cx in (-ex, ex))
+                in_mouth = (x / 0.07) ** 2 + ((y - 0.08) / (0.05 + 0.02 * math.sin(t * 3))) ** 2 < 1
+                if in_eye or in_mouth:
+                    cells.append(" ")
+                else:
+                    ch = "@" if d > -0.04 else BODY[int(n * len(BODY))]
+                    cells.append(f"\033[1;97m{ch}")
+            elif d < 0.16 and n < 0.55 - d * 2.5:
+                colour = 141 if (i + j + tick) % 3 else 79  # violet glow, flecks of grave-green
+                cells.append(f"\033[38;5;{colour}m{HALO[int(n * len(HALO))]}")
+            elif n > 0.997:
+                cells.append("\033[38;5;60m·")
+            else:
+                cells.append(" ")
+        lines.append("".join(cells) + "\033[0m")
+    return lines
+
+
+def intro(seconds=3.2, fps=24):
+    cols, rows = shutil.get_terminal_size()
+    if cols < 40 or rows < 16:
+        return
+    h = min(rows - 3, 26)
+    w = min(cols, int(h * 2.2))
+    pad = " " * ((cols - w) // 2)
+    out = sys.stdout
+    out.write("\033[?25l\033[2J")
+    try:
+        start = time.time()
+        while (t := time.time() - start) < seconds:
+            visible = min(1.0, t / 0.6, (seconds - t) / 0.6)  # fade in, fade out
+            frame = ghost_frame(t, w, h, visible)
+            out.write("\033[H\n" + "\n".join(pad + line for line in frame))
+            out.flush()
+            time.sleep(1 / fps)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        out.write("\033[2J\033[H\033[?25h")
+        out.write(f"\033[38;5;141m  👻 haunted-terminal\033[0m{DIM}  something lives in this shell now{RESET}\n\n")
+        out.flush()
+
+
+# --- the music: a looping drone, wind and a detuned music box, composed here so nothing is licensed ---
+
+def compose(path, seconds=48, rate=22050):
+    n = seconds * rate
+    buf = [0.0] * n
+    rnd = random.Random(1987)
+    tau = 2 * math.pi
+    # Every frequency is a whole number of cycles per loop, so the loop has no seam.
+    drone = [(73.0, 0.20), (110.0, 0.09), (146.5, 0.07), (155.5, 0.035)]  # D, A, D and a sour E-flat
+    for k in range(n):
+        t = k / rate
+        swell = 0.75 + 0.25 * math.sin(tau * t * 3 / seconds)
+        buf[k] = swell * sum(a * math.sin(tau * f * t) for f, a in drone)
+    # Wind: filtered noise whose brightness rises and falls.
+    y = 0.0
+    for k in range(n):
+        t = k / rate
+        a = 0.004 + 0.012 * (0.5 + 0.5 * math.sin(tau * t * 4 / seconds))
+        y += a * (rnd.uniform(-1, 1) - y)
+        buf[k] += y * 2.2
+    # Music box in D Phrygian, a little out of tune, with echoes that wrap around the loop.
+    scale = [293.66, 311.13, 349.23, 392.0, 440.0, 466.16, 587.33]
+    step = int(rate * 1.5)
+    for start in range(0, n, step):
+        if rnd.random() < 0.35:
+            continue
+        f = rnd.choice(scale) * rnd.uniform(0.994, 1.006)
+        for echo, gain in ((0, 0.16), (int(rate * 0.375), 0.06), (int(rate * 0.75), 0.025)):
+            for k in range(int(rate * 2.5)):
+                t = k / rate
+                env = math.exp(-t * 2.2) * min(1, t * 200)
+                v = math.sin(tau * f * t) + 0.3 * math.sin(tau * 2 * f * t) + 0.12 * math.sin(tau * 3.01 * f * t)
+                buf[(start + echo + k) % n] += gain * env * v
+    peak = max(abs(v) for v in buf)
+    samples = array.array("h", (int(v / peak * 0.8 * 32767) for v in buf))
+    with wave.open(path, "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(rate)
+        f.writeframes(samples.tobytes())
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _take_lock(lock):
+    """Atomically become the one music player. False if another live player holds it."""
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                holder = int(open(lock).read())
+            except (OSError, ValueError):
+                return False  # another player is writing its pid right now
+            if alive(holder):
+                return False
+            try:
+                os.unlink(lock)  # left behind by a player that was killed
+            except FileNotFoundError:
+                pass
+    return False
+
+
+def music(shell_pid):
+    """Play the loop until every haunted shell has closed. One player serves all tabs."""
+    shells = os.path.join(CACHE, "shells")
+    os.makedirs(shells, exist_ok=True)
+    open(os.path.join(shells, str(shell_pid)), "w").close()
+    lock = os.path.join(CACHE, "music.pid")
+    if not _take_lock(lock):
+        return
+    os.setsid()  # own process group, so `ghost hush` can stop the player and its child together
+
+    def any_shell():
+        found = False
+        for name in os.listdir(shells):
+            if alive(int(name)):
+                found = True
+            else:
+                os.unlink(os.path.join(shells, name))
+        return found
+
+    track = os.path.join(CACHE, "haunt.wav")
+    if not os.path.exists(track):
+        compose(track + ".tmp")
+        os.replace(track + ".tmp", track)
+    afplay = shutil.which("afplay")
+    player = [afplay, "-v", "0.6", track] if afplay else [shutil.which("paplay") or "aplay", track]
+    try:
+        while any_shell():
+            p = subprocess.Popen(player, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            while p.poll() is None:
+                if not any_shell():
+                    p.terminate()
+                    break
+                time.sleep(1)
+    finally:
+        os.unlink(lock)
+
+
+def hush():
+    try:
+        os.killpg(int(open(os.path.join(CACHE, "music.pid")).read()), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+
+
 def main(argv):
     if len(argv) < 2:
         print(__doc__, file=sys.stderr)
@@ -123,6 +328,18 @@ def main(argv):
 
     if cmd == "voice":
         voice(" ".join(args))
+        return 0
+
+    if cmd == "intro":
+        intro()
+        return 0
+
+    if cmd == "music":
+        music(int(args[0]))
+        return 0
+
+    if cmd == "hush":
+        hush()
         return 0
 
     print(__doc__, file=sys.stderr)
