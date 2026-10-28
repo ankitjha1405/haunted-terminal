@@ -187,7 +187,7 @@ def intro(seconds=3.2, fps=24):
 
 AUTHOR = "Ankit Kumar"
 GITHUB = "github.com/ankitjha1405"
-LINKEDIN = ""  # filled in by the author
+LINKEDIN = "linkedin.com/in/ankit-jha1405"
 
 FONT = {  # 3-row block letters
     "H": ["█ █", "█▀█", "▀ ▀"], "A": ["█▀█", "█▀█", "▀ ▀"], "U": ["█ █", "█ █", "▀▀▀"],
@@ -278,10 +278,8 @@ def banner(cols):
         rows.append([("   ", None)] + carved + [("    ", None)] + info[i])
     rows.append([])
     rows.append([("  " + "─ " * ((w - 4) // 2), (70, 40, 90))])
-    credit = [("  developed by ", (150, 130, 170)), (AUTHOR, (255, 140, 0)), ("  ·  ", (110, 80, 150)), (GITHUB, (160, 80, 255))]
-    if LINKEDIN:
-        credit += [("  ·  ", (110, 80, 150)), (LINKEDIN, (160, 80, 255))]
-    rows.append(credit)
+    rows.append([("  developed by ", (150, 130, 170)), (AUTHOR, (255, 140, 0))])
+    rows.append([("  ", None), (GITHUB, (160, 80, 255)), ("  ·  ", (110, 80, 150)), (LINKEDIN, (160, 80, 255))])
     rows.append([("░" * w, (45, 20, 60))])  # fog along the bottom
 
     border = _fg((255, 120, 0))
