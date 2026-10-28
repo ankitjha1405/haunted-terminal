@@ -16,6 +16,7 @@ import random
 import re
 import shutil
 import signal
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -94,7 +95,10 @@ def voice(text):
             json.dumps({"text": text, "model_id": "eleven_flash_v2_5"}).encode(),
             {"Content-Type": "application/json", "xi-api-key": os.environ["ELEVENLABS_API_KEY"]},
         )
-        with urllib.request.urlopen(req, timeout=15) as resp, \
+        tls = ssl.create_default_context()
+        if not tls.get_ca_certs() and os.path.exists("/etc/ssl/cert.pem"):
+            tls.load_verify_locations("/etc/ssl/cert.pem")  # python.org builds ship without root certs
+        with urllib.request.urlopen(req, timeout=15, context=tls) as resp, \
                 tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             f.write(resp.read())
         player = shutil.which("afplay") or shutil.which("mpg123")
