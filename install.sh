@@ -8,6 +8,7 @@ DEST="$HOME/.ghost"
 mkdir -p "$DEST"
 curl -fsSL "$SRC/ghost" -o "$DEST/ghost"
 curl -fsSL "$SRC/ghost.zsh" -o "$DEST/ghost.zsh"
+curl -fsSL "$SRC/haunt.mp3" -o "$DEST/haunt.mp3"
 chmod +x "$DEST/ghost"
 
 LINE="source \"$DEST/ghost.zsh\""

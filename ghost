@@ -273,10 +273,13 @@ def music(shell_pid):
                 os.unlink(os.path.join(shells, name))
         return found
 
-    track = os.path.join(CACHE, "haunt.wav")
+    # A real track next to this script wins; otherwise compose one.
+    track = os.path.join(os.path.dirname(os.path.realpath(__file__)), "haunt.mp3")
     if not os.path.exists(track):
-        compose(track + ".tmp")
-        os.replace(track + ".tmp", track)
+        track = os.path.join(CACHE, "haunt.wav")
+        if not os.path.exists(track):
+            compose(track + ".tmp")
+            os.replace(track + ".tmp", track)
     afplay = shutil.which("afplay")
     player = [afplay, "-v", "0.6", track] if afplay else [shutil.which("paplay") or "aplay", track]
     try:

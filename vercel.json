@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cp ghost ghost.zsh install.sh site/",
+  "buildCommand": "cp ghost ghost.zsh install.sh haunt.mp3 site/",
   "outputDirectory": "site",
   "framework": null
 }
