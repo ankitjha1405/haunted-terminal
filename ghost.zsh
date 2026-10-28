@@ -3,6 +3,13 @@
 
 GHOST_BIN=${GHOST_BIN:-${0:A:h}/ghost}
 
+# Private settings such as ELEVENLABS_API_KEY live in a git-ignored .env next to this file.
+if [[ -f ${GHOST_BIN:h}/.env ]]; then
+  set -a
+  source ${GHOST_BIN:h}/.env
+  set +a
+fi
+
 # After each command, the ghost may comment on it.
 _ghost_preexec() { _ghost_last=$1 }
 _ghost_precmd() {
