@@ -2,6 +2,7 @@
 # Needs a local llama-server running Gemma (see README).
 
 GHOST_BIN=${GHOST_BIN:-${0:A:h}/ghost}
+alias ghost="$GHOST_BIN"  # so `ghost hush` works in any haunted shell
 
 # Private settings such as ELEVENLABS_API_KEY live in a git-ignored .env next to this file.
 if [[ -f ${GHOST_BIN:h}/.env ]]; then

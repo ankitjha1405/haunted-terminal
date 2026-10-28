@@ -4,48 +4,232 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Haunted Terminal</title>
-<meta name="description" content="A ghost that lives in your zsh, powered by Gemma running on your own machine.">
+<meta name="description" content="A ghost moves into your terminal. It rises when you open a tab, plays a horror soundtrack, whispers about your commands, and stops you before rm -rf. Powered by Gemma, on your own machine.">
+<meta property="og:title" content="Haunted Terminal">
+<meta property="og:description" content="A ghost that lives in your zsh, powered by Gemma running on your own machine.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
 <style>
-  :root { --bg: #0b0d0c; --fg: #c9d1c8; --dim: #6b756c; --glow: #9dffb0; --warn: #ff8f6b; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 ui-monospace, Menlo, monospace; }
-  main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
-  h1 { color: var(--glow); font-size: 2rem; margin: 0 0 8px; text-shadow: 0 0 12px rgba(157,255,176,.4); }
-  p { margin: 0 0 16px; }
-  .term { background: #050605; border: 1px solid #1d221e; border-radius: 8px; padding: 16px; margin: 24px 0; overflow-x: auto; white-space: pre; }
-  .ghost { color: var(--dim); font-style: italic; }
-  .warn { color: var(--warn); }
-  code { color: var(--glow); }
-  a { color: var(--glow); }
-  h2 { font-size: 1.1rem; margin: 32px 0 8px; }
-  @media (prefers-reduced-motion: no-preference) {
-    .ghost { animation: flicker 4s infinite; }
-    @keyframes flicker { 0%, 92%, 100% { opacity: 1; } 94% { opacity: .3; } 96% { opacity: .8; } }
+  :root {
+    --bg: #0c0b10; --panel: #141219; --line: #26222f;
+    --fg: #d8d4e2; --dim: #8a849a; --white: #ffffff;
+    --violet: #af87ff; --green: #5fd7af; --orange: #ffaf5f; --pink: #ff5faf;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--mono); }
+  a { color: var(--violet); text-underline-offset: 3px; }
+  a:hover { color: var(--white); }
+  code { color: var(--green); }
+  main { max-width: 920px; margin: 0 auto; padding: 0 16px 64px; }
+  section { margin-top: 88px; }
+  h1 { font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.1; color: var(--white); margin: 0 0 12px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.35rem; color: var(--white); margin: 0 0 8px; }
+  h3 { font-size: 1rem; color: var(--white); margin: 0 0 6px; }
+  .kicker { color: var(--violet); font-size: .85rem; text-transform: uppercase; letter-spacing: .14em; margin: 0 0 12px; }
+  .lede { color: var(--dim); max-width: 60ch; margin: 0 0 24px; }
+  p { margin: 0 0 14px; }
+
+  /* hero */
+  .hero > * { min-width: 0; }
+  .hero { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: center; padding-top: 56px; }
+  @media (min-width: 820px) { .hero { grid-template-columns: 1.05fr 1fr; padding-top: 88px; } }
+  .stage { display: flex; justify-content: center; }
+  #ghost { margin: 0; font: 700 min(14px, calc((100vw - 40px) / 29)) / 1.15 var(--mono); color: var(--white); white-space: pre; user-select: none; }
+  #ghost .h1 { color: var(--violet); font-weight: 400; }
+  #ghost .h2 { color: var(--green); font-weight: 400; }
+  #ghost .p { color: #5f5f87; font-weight: 400; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-size: .9rem; cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: var(--violet); color: var(--white); }
+  .btn.primary { background: var(--violet); border-color: var(--violet); color: #120b1f; font-weight: 700; }
+  .btn.primary:hover { background: var(--white); border-color: var(--white); }
+  .btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  /* terminal window */
+  .window { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .window img { display: block; width: 100%; height: auto; }
+
+  /* steps + features */
+  .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 24px; }
+  .step, .feature { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .step .n { color: var(--violet); font-size: .8rem; }
+  .step p, .feature p { color: var(--dim); font-size: .9rem; margin: 0; }
+  .features { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 24px; }
+  .feature .tag { font-size: .75rem; color: var(--green); margin-bottom: 8px; display: block; }
+
+  /* install */
+  ol.install { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 20px; counter-reset: s; }
+  ol.install li { counter-increment: s; min-width: 0; }
+  .note code { overflow-wrap: anywhere; }
+  ol.install li::before { content: counter(s) ". "; color: var(--violet); }
+  .cmd { position: relative; margin-top: 8px; background: #08070b; border: 1px solid var(--line); border-radius: 8px; padding: 14px 64px 14px 14px; overflow-x: auto; white-space: pre; font-size: .9rem; color: var(--fg); }
+  .cmd .copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; font-size: .75rem; }
+  .note { color: var(--dim); font-size: .9rem; margin-top: 8px; }
+
+  /* table */
+  .table-wrap { overflow-x: auto; margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 400; }
+  tr:last-child td { border-bottom: 0; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 96px; padding: 32px 16px 48px; text-align: center; color: var(--dim); font-size: .88rem; }
+  footer .who { color: var(--fg); font-size: 1rem; margin-bottom: 6px; }
+  footer .who b { color: var(--orange); font-weight: 400; }
 </style>
 </head>
 <body>
 <main>
-  <h1>haunted-terminal</h1>
-  <p>Open a terminal and a ghost rises out of the dark while a music box plays somewhere far away. Then it stays. A ghost lives in your zsh. It watches the commands you run and whispers about them. It begs you to reconsider before you <code>rm -rf</code>.</p>
-  <p>It runs on Gemma, on your own machine. Your shell history never leaves your laptop.</p>
+  <header class="hero">
+    <div>
+      <p class="kicker">Ghost in the Machine</p>
+      <h1>A ghost moves into your terminal.</h1>
+      <p class="lede">Open a tab and it rises out of the dark while a horror soundtrack starts. Then it stays. It whispers about the commands you run, and stops you before you <code>rm -rf</code>. It runs on Gemma, on your own machine. Your shell history never leaves your laptop.</p>
+      <div class="actions">
+        <a class="btn primary" href="#install">Install</a>
+        <button class="btn" id="sound" type="button" aria-pressed="false">▶ Play the haunting</button>
+        <a class="btn" href="https://github.com/ankitjha1405/haunted-terminal">GitHub</a>
+      </div>
+    </div>
+    <div class="stage"><pre id="ghost" aria-label="An animated ASCII ghost floating in a violet glow" role="img"></pre></div>
+  </header>
 
-  <div class="term" role="img" aria-label="Example terminal session with ghost comments">$ git commit -m "final fix"
-<span class="ghost">  👻 Final. I said that in 1987. I am still here.</span>
-$ npm test
-<span class="ghost">  👻 Red again. The tests remember what you forgot.</span>
-$ rm -rf node_modules
-<span class="warn">👻 The machine shivers. You are about to run rm -rf. Proceed? [y/N]</span></div>
+  <section id="what">
+    <p class="kicker">When you open a terminal</p>
+    <h2>Four things happen.</h2>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><h3>The ghost rises</h3><p>A full-screen ASCII ghost fades in, bobs, blinks and fades out.</p></div>
+      <div class="step"><span class="n">02</span><h3>The music starts</h3><p>A horror soundtrack loops for as long as any haunted tab is open.</p></div>
+      <div class="step"><span class="n">03</span><h3>The welcome card</h3><p>The ghost floats beside your status until you press a key.</p></div>
+      <div class="step"><span class="n">04</span><h3>It stays</h3><p>It comments on your commands and guards the dangerous ones.</p></div>
+    </div>
+  </section>
 
-  <h2>Install</h2>
-  <div class="term">curl -fsSL https://haunted-terminal-lovat.vercel.app/install.sh | sh
+  <section>
+    <p class="kicker">What you see</p>
+    <h2>The welcome card, then a normal day.</h2>
+    <p class="lede">Every ghost line below is real Gemma output, about half a second each.</p>
+    <div class="window"><img src="welcome-card.svg" width="778" height="648" alt="Terminal showing the haunted-terminal welcome card with an ASCII ghost, status for Gemma and music, and credits, followed by commands with ghost comments and an rm -rf warning."></div>
+  </section>
+
+  <section>
+    <p class="kicker">Features</p>
+    <h2>Spooky on the surface, careful underneath.</h2>
+    <div class="features">
+      <div class="feature"><span class="tag">Gemma 4 · local</span><h3>Whispers about your commands</h3><p>The ghost of a programmer who died in 1987 mid-COBOL migration. One cold, jealous line, about one command in three.</p></div>
+      <div class="feature"><span class="tag">instant · no AI</span><h3>Stops you before disaster</h3><p><code>rm -rf</code>, force pushes, <code>git reset --hard</code>, <code>DROP TABLE</code>, <code>curl | sh</code>. Plain pattern matching, so it is instant and never guesses.</p></div>
+      <div class="feature"><span class="tag">one player for all tabs</span><h3>A haunting soundtrack</h3><p>Loops while any haunted tab is open and stops when the last one closes. <code>ghost hush</code> silences it.</p></div>
+      <div class="feature"><span class="tag">say · ElevenLabs</span><h3>A voice from the other side</h3><p>The ghost can speak its lines aloud: the offline macOS whisper, or an ElevenLabs voice.</p></div>
+      <div class="feature"><span class="tag">offline · free · private</span><h3>Nothing leaves your laptop</h3><p>The model runs through llama.cpp on your machine. No account, no API bill, no logs on someone else's server.</p></div>
+      <div class="feature"><span class="tag">fails silent</span><h3>Never in your way</h3><p>No model running? The ghost stays quiet. One Python file, standard library only.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <p class="kicker">Install</p>
+    <h2>Three steps. macOS or Linux, zsh.</h2>
+    <ol class="install">
+      <li>Start Gemma. The first run downloads the model (about 3 GB).
+        <div class="cmd"><button class="btn copy" type="button">Copy</button>brew install llama.cpp
 llama-server -hf ggml-org/gemma-4-E2B-it-GGUF --port 8080</div>
-  <p>Yes, the ghost warns you about that first line. Read <a href="install.sh">install.sh</a> first. It is short.</p>
+      </li>
+      <li>Let the ghost move in.
+        <div class="cmd"><button class="btn copy" type="button">Copy</button>git clone https://github.com/ankitjha1405/haunted-terminal ~/.ghost
+echo 'source ~/.ghost/ghost.zsh' >> ~/.zshrc</div>
+        <p class="note">Or <code>curl -fsSL https://haunted-terminal-lovat.vercel.app/install.sh | sh</code>. The ghost will warn you about piping the internet into a shell. Read <a href="install.sh">install.sh</a> first.</p>
+      </li>
+      <li>Open a new terminal window, at least 70 columns wide. Turn your sound on.</li>
+    </ol>
+  </section>
 
-  <h2>Give it a voice</h2>
-  <p><code>export GHOST_VOICE=say</code> for the offline macOS whisper, or <code>GHOST_VOICE=elevenlabs</code> with <code>ELEVENLABS_API_KEY</code> set. Only the ghost's spoken line goes to ElevenLabs. It may quote your command, so use <code>say</code> if that matters.</p>
-
-  <p><a href="https://github.com/ankitjha1405/haunted-terminal">Source on GitHub</a></p>
+  <section>
+    <p class="kicker">Settings</p>
+    <h2>Put these in <code>~/.ghost/.env</code>.</h2>
+    <p class="lede">That file is loaded by every haunted shell and is never committed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>GHOST_INTRO</code></td><td>on</td><td><code>0</code> skips the rising ghost and the welcome card.</td></tr>
+          <tr><td><code>GHOST_MUSIC</code></td><td>on</td><td><code>0</code> turns the soundtrack off.</td></tr>
+          <tr><td><code>GHOST_CHANCE</code></td><td>0.35</td><td>How often the ghost comments. <code>1</code> means every command.</td></tr>
+          <tr><td><code>GHOST_VOICE</code></td><td>off</td><td><code>say</code> or <code>elevenlabs</code>.</td></tr>
+          <tr><td><code>ELEVENLABS_API_KEY</code></td><td></td><td>Needed for the ElevenLabs voice.</td></tr>
+          <tr><td><code>GHOST_URL</code></td><td>local llama-server</td><td>Any OpenAI-compatible endpoint.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </main>
+
+<footer>
+  <div class="who">Developed by <b>Ankit Kumar</b></div>
+  <div><a href="https://github.com/ankitjha1405">github.com/ankitjha1405</a> · <a href="https://www.linkedin.com/in/ankit-jha1405">linkedin.com/in/ankit-jha1405</a></div>
+  <p style="margin-top:16px">Built for the <a href="https://dev.to/challenges/hacktoberfest-week4-2026-10-26">DEV Hacktoberfest Open-Source AI Challenge</a>. Music: "Horror Music" by kiravale, via Pixabay. Code: MIT.</p>
+</footer>
+
+<audio id="track" src="haunt.mp3" loop preload="none"></audio>
+<script>
+  // The same ghost as the terminal: a signed distance field drawn in characters.
+  const W = 48, H = 22, BODY = "@$$%", HALO = "+=~x*o";
+  const pre = document.getElementById("ghost");
+  const noise = (i, j, k) => (((i * 73856093) ^ (j * 19349663) ^ (k * 83492791)) >>> 0) % 1000 / 1000;
+  function dist(x, y, t) {
+    const head = Math.hypot(x, y + 0.2) - 0.5;
+    const hem = 0.55 + 0.07 * Math.sin(x * 11 - t * 5);
+    return Math.min(head, Math.max(Math.abs(x) - 0.5, y - hem, -0.2 - y));
+  }
+  function frame(t) {
+    const bob = 0.06 * Math.sin(t * 2.4), blink = (t % 2.2) < 0.15, tick = Math.floor(t * 12);
+    let html = "";
+    for (let j = 0; j < H; j++) {
+      const y = (j - H / 2) / (H / 2) * 1.05 - bob;
+      let cls = null, run = "";
+      const flush = () => { if (run) html += cls ? `<span class="${cls}">${run}</span>` : run; run = ""; };
+      for (let i = 0; i < W; i++) {
+        const x = (i - W / 2) / H, d = dist(x, y, t), n = noise(i, j, tick);
+        let ch = " ", c = null;
+        if (d < 0) {
+          const ry = blink ? 0.012 : 0.1;
+          const eye = [-0.17, 0.17].some(cx => ((x - cx) / 0.065) ** 2 + ((y + 0.2) / ry) ** 2 < 1);
+          const mouth = (x / 0.07) ** 2 + ((y - 0.08) / (0.05 + 0.02 * Math.sin(t * 3))) ** 2 < 1;
+          if (!eye && !mouth) ch = d > -0.04 ? "@" : BODY[Math.floor(n * BODY.length)];
+        } else if (d < 0.16 && n < 0.55 - d * 2.5) {
+          ch = HALO[Math.floor(n * HALO.length)]; c = (i + j + tick) % 3 ? "h1" : "h2";
+        } else if (n > 0.997) { ch = "·"; c = "p"; }
+        if (c !== cls) { flush(); cls = c; }
+        run += ch;
+      }
+      flush();
+      html += "\n";
+    }
+    pre.innerHTML = html;
+  }
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const start = performance.now();
+  let last = 0;
+  function loop(now) {
+    if (now - last > 50) { frame((now - start) / 1000); last = now; }
+    requestAnimationFrame(loop);
+  }
+  if (still) frame(0.4); else requestAnimationFrame(loop);
+
+  // Browsers block autoplay, so the soundtrack waits for a click.
+  const track = document.getElementById("track"), sound = document.getElementById("sound");
+  sound.addEventListener("click", () => {
+    const on = track.paused;
+    if (on) { track.volume = 0.6; track.play(); } else track.pause();
+    sound.textContent = on ? "❚❚ Hush" : "▶ Play the haunting";
+    sound.setAttribute("aria-pressed", String(on));
+  });
+
+  document.querySelectorAll(".cmd .copy").forEach(btn => btn.addEventListener("click", async () => {
+    const text = btn.parentElement.textContent.replace(btn.textContent, "").trim();
+    try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+    catch { btn.textContent = "Select it"; }
+    setTimeout(() => (btn.textContent = "Copy"), 1500);
+  }));
+</script>
 </body>
 </html>
