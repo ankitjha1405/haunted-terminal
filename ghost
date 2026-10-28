@@ -35,7 +35,7 @@ RISKY = [
     (r"\bdd\s+.*\bof=/dev/", "dd onto a disk"),
     (r"\bmkfs\b", "mkfs"),
     (r"\bchmod\s+-R\s+777\b", "chmod -R 777"),
-    (r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b", "piping the internet into a shell"),
+    (r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b", "curl piped into a shell"),
     (r"\bdrop\s+(table|database)\b", "DROP"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", "a fork bomb"),
 ]
