@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""ghost: a spirit that haunts your zsh, powered by Gemma running on your own machine.
+
+  ghost speak <exit_code> <command>   comment on a command that just ran
+  ghost check <command>               exit 1 and print a warning if the command is risky
+  ghost voice <text>                  say a line aloud (used internally, runs in the background)
+"""
+import json
+import os
+import random
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+URL = os.environ.get("GHOST_URL", "http://127.0.0.1:8080/v1/chat/completions")
+CHANCE = float(os.environ.get("GHOST_CHANCE", "0.35"))
+VOICE = os.environ.get("GHOST_VOICE", "")  # "", "say" or "elevenlabs"
+
+SYSTEM = (
+    "You are the ghost of a programmer who died in 1987 at a VT100 terminal, "
+    "mid-way through a COBOL migration. You now haunt this person's shell. "
+    "You see each command they run. Reply with ONE eerie, witty sentence, under 20 words. "
+    "Speak like a ghost: cold, old, a little jealous of the living. "
+    "If the command failed, gloat softly. Never give advice. No emojis, no quotes, no hashtags."
+)
+
+RISKY = [
+    (r"\brm\s+-\w*(rf|fr)\w*\b", "rm -rf"),
+    (r"\bgit\s+push\b.*\s(-f|--force)\b", "a force push"),
+    (r"\bgit\s+reset\s+--hard\b", "git reset --hard"),
+    (r"\bgit\s+clean\s+-\w*f", "git clean"),
+    (r"\bdd\s+.*\bof=/dev/", "dd onto a disk"),
+    (r"\bmkfs\b", "mkfs"),
+    (r"\bchmod\s+-R\s+777\b", "chmod -R 777"),
+    (r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b", "piping the internet into a shell"),
+    (r"\bdrop\s+(table|database)\b", "DROP"),
+    (r":\(\)\s*\{\s*:\|:&\s*\};:", "a fork bomb"),
+]
+
+DIM = "\033[2;3m"
+RESET = "\033[0m"
+
+
+def risk(command):
+    """Return a name for the danger in `command`, or None if it looks safe."""
+    for pattern, name in RISKY:
+        if re.search(pattern, command, re.IGNORECASE):
+            return name
+    return None
+
+
+def build_messages(command, exit_code):
+    status = "it succeeded" if exit_code == 0 else f"it failed with exit code {exit_code}"
+    return [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user", "content": f"They ran: {command}\nAnd {status}."},
+    ]
+
+
+def ask_ghost(command, exit_code, timeout=4):
+    body = json.dumps({
+        "messages": build_messages(command, exit_code),
+        "max_tokens": 60,
+        "temperature": 1.0,
+    }).encode()
+    req = urllib.request.Request(URL, body, {"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        text = json.load(resp)["choices"][0]["message"]["content"]
+    return " ".join(text.split()).strip("\"'")
+
+
+def voice(text):
+    if VOICE == "say" and shutil.which("say"):
+        subprocess.run(["say", "-v", "Whisper", text])
+    elif VOICE == "elevenlabs" and os.environ.get("ELEVENLABS_API_KEY"):
+        voice_id = os.environ.get("GHOST_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
+        req = urllib.request.Request(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
+            json.dumps({"text": text, "model_id": "eleven_flash_v2_5"}).encode(),
+            {"Content-Type": "application/json", "xi-api-key": os.environ["ELEVENLABS_API_KEY"]},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp, \
+                tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            f.write(resp.read())
+        player = shutil.which("afplay") or shutil.which("mpg123")
+        if player:
+            subprocess.run([player, f.name])
+        os.unlink(f.name)
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__, file=sys.stderr)
+        return 2
+    cmd, args = argv[1], argv[2:]
+
+    if cmd == "check":
+        danger = risk(" ".join(args))
+        if danger:
+            print(f"The machine shivers. You are about to run {danger}.")
+            return 1
+        return 0
+
+    if cmd == "speak":
+        exit_code, command = int(args[0]), " ".join(args[1:])
+        if not command.strip() or random.random() > CHANCE:
+            return 0
+        try:
+            line = ask_ghost(command, exit_code)
+        except Exception:
+            return 0  # no server, no ghost: never get in the way of the shell
+        if line:
+            print(f"{DIM}  👻 {line}{RESET}", file=sys.stderr)
+            if VOICE:
+                subprocess.Popen([sys.executable, __file__, "voice", line], start_new_session=True,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return 0
+
+    if cmd == "voice":
+        voice(" ".join(args))
+        return 0
+
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
