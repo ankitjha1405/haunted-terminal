@@ -38,7 +38,7 @@ Built for the [DEV Hacktoberfest Open-Source AI Challenge, Week 4: Ghost in the 
 - `ghost.zsh` adds two zsh hooks. `precmd` sends the last command and its exit code to `ghost speak`. A wrapped `accept-line` widget runs `ghost check` before Enter, and asks you to confirm if the command is risky.
 - `ghost` is one Python file with no dependencies. It calls llama-server's OpenAI-compatible endpoint with a ghost persona, and prints the reply in dim italics.
 - The risky-command check is plain regex, not the model. It must be instant and must never hallucinate.
-- After the ghost fades, a neon jack-o'-lantern welcome card shows whether Gemma is awake, the music, your folder, and credits.
+- After the ghost fades, a welcome card appears with the same ghost floating inside it, on a loop, until you press a key. It shows whether Gemma is awake, the music, your folder, and credits. It uses only 256 colours, because macOS Terminal.app can't show 24-bit colour.
 - The intro is a signed distance field (a circle head, a body with a wavy hem) drawn in `@$%` and lit with a violet halo, 24 frames a second.
 - The music is ["Horror Music" by kiravale](https://pixabay.com/) from Pixabay (Pixabay Content License), saved as `haunt.mp3`. If that file is missing, the code composes its own loop: a D minor drone with a sour E-flat, filtered wind, and a detuned music box with echoes. Every frequency loops in a whole number of cycles, so the 48-second loop has no seam. One player serves all your terminal tabs and stops when the last one closes.
 - If llama-server is not running, the ghost stays silent. It never blocks your shell.

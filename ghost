@@ -183,11 +183,12 @@ def intro(seconds=3.2, fps=24):
         pass
     finally:
         out.write("\033[2J\033[H\033[?25h")
-        out.write("\n".join(banner(cols)) + "\n\n")
         out.flush()
+    welcome(cols, rows)
 
 
-# --- the welcome card: neon jack-o'-lantern style, like a CLI's start screen ---
+# --- the welcome card: the same ghost, floating beside your status, like a CLI's start screen ---
+# Only 256-colour codes: macOS Terminal.app cannot show 24-bit colour.
 
 AUTHOR = "Ankit Kumar"
 GITHUB = "github.com/ankitjha1405"
@@ -199,25 +200,8 @@ FONT = {  # 3-row block letters
     "D": ["█▀▄", "█ █", "▀▀ "], "R": ["█▀█", "█▀▄", "▀ ▀"], "M": ["█▄ ▄█", "█ ▀ █", "▀   ▀"],
     "I": ["█", "█", "▀"], "L": ["█  ", "█  ", "▀▀▀"], " ": ["  ", "  ", "  "],
 }
-PUMPKIN = [
-    r"     ,_/     ",
-    r"  .-'   '-.  ",
-    r" / /\   /\ \ ",
-    r"|     ^     |",
-    r" \ \/\/\/\/ / ",
-    r"  '-.___.-'  ",
-]
-NEON = [(255, 140, 0), (255, 40, 160), (160, 80, 255)]  # pumpkin orange to magenta to violet
-
-
-def _fg(rgb):
-    return "\033[38;2;%d;%d;%dm" % rgb
-
-
-def _neon(x):
-    """Colour at position 0..1 along the orange-magenta-violet gradient."""
-    a, b, t = (NEON[0], NEON[1], x * 2) if x < 0.5 else (NEON[1], NEON[2], x * 2 - 1)
-    return tuple(int(a[k] + (b[k] - a[k]) * t) for k in range(3))
+ANSI = re.compile(r"\033\[[0-9;]*m")
+GHOST_W, GHOST_H = 28, 13
 
 
 def title_rows(text):
@@ -237,68 +221,99 @@ def _gemma_awake():
         return False
 
 
-def banner(cols):
-    """The welcome card as lines of text. Every line has the same visible width."""
+def status():
+    return {"awake": _gemma_awake(), "music": os.environ.get("GHOST_MUSIC") != "0",
+            "cwd": os.getcwd().replace(os.path.expanduser("~"), "~", 1)}
+
+
+def banner(cols, t=0.0, state=None, waiting=False):
+    """The welcome card at time `t` as lines of text. Every line has the same visible width."""
     w = min(cols, 80) - 2  # inner width
     if w < 68:  # the block-letter title is 65 wide
         return [f"\033[38;5;141m  👻 haunted-terminal\033[0m{DIM}  something lives in this shell now{RESET}"]
-    rnd = random.Random()
-    rows = []  # each row: list of (text, rgb or None)
+    state = state or status()
+    label, value = "38;5;103", "38;5;252"
+    rows = []  # each row: list of (text, SGR code); code "raw" means the text carries its own colour
 
-    def sky():
-        line = [" "] * w
-        for _ in range(4):
-            x = rnd.randrange(2, w - 4)
-            line[x:x + 3] = "⌒v⌒" if rnd.random() < 0.5 else " ✦ "
-        return [("".join(line), (110, 80, 150))]
-
-    rows.append(sky())
+    sky = [" "] * w
+    for k, base in enumerate((5, 23, 41, 60)):  # bats drift across the sky
+        x = int(base + t * (2 + k % 2)) % (w - 3)
+        sky[x:x + 3] = "⌒v⌒" if k % 2 == 0 else "^v^"
+    rows.append([("".join(sky), "38;5;60")])
     rows.append([])
-    t = title_rows("HAUNTED TERMINAL")
-    pad = (w - len(t[0])) // 2
-    for r in t:
-        rows.append([(" " * pad, None)] + [(c, _neon(i / len(r))) for i, c in enumerate(r)])
-    rows.append([(" " * ((w - 34) // 2) + "something lives in this shell now", (150, 130, 170))])
-    rows.append([])
+    t_rows = title_rows("HAUNTED TERMINAL")
+    pad = " " * ((w - len(t_rows[0])) // 2)
+    for r, code in zip(t_rows, ("1;38;5;231", "1;38;5;231", "38;5;141")):
+        rows.append([(pad + r, code)])
+    rows.append([(" " * ((w - 33) // 2) + "something lives in this shell now", label)])
 
-    awake = _gemma_awake()
-    music = os.environ.get("GHOST_MUSIC") != "0"
-    home = os.path.expanduser("~")
-    cwd = os.getcwd().replace(home, "~", 1)
     info = [
-        [("the ghost  ", (150, 130, 170)), ("● awake" if awake else "○ asleep", (120, 255, 150) if awake else (130, 120, 140)),
-         ("  Gemma 4 on this machine" if awake else "  start llama-server to wake it", (200, 190, 210))],
-        [("the music  ", (150, 130, 170)), ("♪ playing" if music else "♪ off", (255, 140, 0)),
-         ("  ghost hush to stop" if music else "", (200, 190, 210))],
-        [("you are in ", (150, 130, 170)), (cwd[: w - 30], (200, 190, 210))],
         [],
-        [("press Enter on rm -rf and I will stop you", (255, 40, 160))],
         [],
+        [("the ghost  ", label), ("● awake" if state["awake"] else "○ asleep", "38;5;120" if state["awake"] else "38;5;244"),
+         ("  Gemma 4, on this machine" if state["awake"] else "  run llama-server to wake it", value)],
+        [("the music  ", label), ("♪ playing  " if state["music"] else "♪ off", "38;5;215"),
+         ("ghost hush to stop" if state["music"] else "", value)],
+        [("you are in ", label), (state["cwd"], value)],
+        [],
+        [("press Enter on rm -rf and I will stop you", "38;5;205")],
+        [],
+        [("press any key to enter" if waiting and int(t * 1.5) % 2 == 0 else "", "2;38;5;141")],
     ]
-    for i, art in enumerate(PUMPKIN):
-        art = art.ljust(14)
-        lo, hi = len(art) - len(art.lstrip()), len(art.rstrip()) - 1
-        carved = [(c, (255, 140, 0) if k in (lo, hi) or i in (0, 1, 5) else (255, 225, 80)) for k, c in enumerate(art)]
-        rows.append([("   ", None)] + carved + [("    ", None)] + info[i])
-    rows.append([])
-    rows.append([("  " + "─ " * ((w - 4) // 2), (70, 40, 90))])
-    rows.append([("  developed by ", (150, 130, 170)), (AUTHOR, (255, 140, 0))])
-    rows.append([("  ", None), (GITHUB, (160, 80, 255)), ("  ·  ", (110, 80, 150)), (LINKEDIN, (160, 80, 255))])
-    rows.append([("░" * w, (45, 20, 60))])  # fog along the bottom
+    for i, line in enumerate(ghost_frame(t, GHOST_W, GHOST_H)):
+        rows.append([("  ", None), (line, "raw"), ("   ", None)] + (info[i] if i < len(info) else []))
+    rows.append([("  " + "─ " * ((w - 4) // 2), "38;5;60")])
+    rows.append([("  developed by ", label), (AUTHOR, "38;5;215")])
+    rows.append([("  " + GITHUB, "38;5;141"), ("  ·  ", "38;5;60"), (LINKEDIN, "38;5;141")])
+    rows.append([("░" * w, "38;5;237")])  # fog along the bottom
 
-    border = _fg((255, 120, 0))
+    border = "\033[38;5;141m"
     lines = [border + "╭" + "─" * w + "╮" + RESET]
-    for n, row in enumerate(rows):
-        shade = n / len(rows)
-        bg = "\033[48;2;%d;%d;%dm" % (int(14 + 16 * shade), int(6 + 4 * shade), int(24 + 10 * shade))
+    for row in rows:
         text, width = "", 0
-        for seg, rgb in row:
+        for seg, code in row:
+            if code == "raw":
+                width += len(ANSI.sub("", seg))
+                text += seg + RESET
+                continue
             seg = seg[: w - width]  # never let text push the border out
-            text += (_fg(rgb) if rgb else "") + seg
+            text += (f"\033[{code}m" if code else "") + seg + RESET
             width += len(seg)
-        lines.append(border + "│" + bg + text + " " * max(0, w - width) + RESET + border + "│" + RESET)
+        lines.append(border + "│" + RESET + text + " " * max(0, w - width) + border + "│" + RESET)
     lines.append(border + "╰" + "─" * w + "╯" + RESET)
     return lines
+
+
+def welcome(cols, rows, fps=20):
+    """Show the card. The ghost in it floats on a loop until you press a key."""
+    out = sys.stdout
+    state = status()
+    lines = banner(cols, 0, state, waiting=True)
+    out.write("\n".join(lines) + "\n")
+    out.flush()
+    if len(lines) == 1 or rows < len(lines) + 2 or not sys.stdin.isatty():
+        return  # no room to redraw in place, or nobody to press a key
+    import select
+    import termios
+    import tty
+    fd = sys.stdin.fileno()
+    saved = termios.tcgetattr(fd)
+    t = 0.0
+    try:
+        tty.setcbreak(fd)
+        out.write("\033[?25l")
+        start = time.time()
+        while not select.select([fd], [], [], 1 / fps)[0]:
+            t = time.time() - start
+            out.write(f"\r\033[{len(lines)}A" + "\n".join(banner(cols, t, state, waiting=True)) + "\n")
+            out.flush()
+        os.read(fd, 64)  # the key that wakes you is not typed into the prompt
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+        out.write(f"\r\033[{len(lines)}A" + "\n".join(banner(cols, t, state)) + "\n\033[?25h")
+        out.flush()
 
 
 # --- the music: a looping drone, wind and a detuned music box, composed here so nothing is licensed ---
