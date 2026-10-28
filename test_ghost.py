@@ -52,6 +52,7 @@ class TestGhost(unittest.TestCase):
         try:
             self.assertEqual(ghost.ask_ghost("ls", 0), "I remember when ls was enough.")
             self.assertEqual(FakeGemma.last["messages"][0]["role"], "system")
+            self.assertFalse(FakeGemma.last["chat_template_kwargs"]["enable_thinking"])
         finally:
             server.shutdown()
 

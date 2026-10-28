@@ -65,6 +65,8 @@ def ask_ghost(command, exit_code, timeout=4):
         "messages": build_messages(command, exit_code),
         "max_tokens": 60,
         "temperature": 1.0,
+        # Gemma 4 starts "thinking" with a system prompt and spends every token on it
+        "chat_template_kwargs": {"enable_thinking": False},
     }).encode()
     req = urllib.request.Request(URL, body, {"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
