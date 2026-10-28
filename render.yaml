@@ -1,6 +1,0 @@
-services:
-  - type: web
-    name: haunted-terminal
-    runtime: static
-    buildCommand: cp ghost ghost.zsh install.sh site/
-    staticPublishPath: site

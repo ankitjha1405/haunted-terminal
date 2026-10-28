@@ -3,3 +3,5 @@ __pycache__/
 *.mp3
 .DS_Store
 dev-post.md
+.vercel
+.env*

@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cp ghost ghost.zsh install.sh site/",
+  "outputDirectory": "site",
+  "framework": null
+}

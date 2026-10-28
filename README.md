@@ -25,11 +25,11 @@ Built for the [DEV Hacktoberfest Open-Source AI Challenge, Week 4: Ghost in the 
 2. Install the ghost:
 
    ```sh
-   git clone https://github.com/ankitjhafoxo/haunted-terminal ~/.ghost
+   git clone https://github.com/ankitjha1405/haunted-terminal ~/.ghost
    echo 'source ~/.ghost/ghost.zsh' >> ~/.zshrc
    ```
 
-   Or use the [installer](https://haunted-terminal.onrender.com/install.sh). The ghost will warn you about piping it into `sh`. Read it first.
+   Or use the [installer](https://haunted-terminal-lovat.vercel.app/install.sh). The ghost will warn you about piping it into `sh`. Read it first.
 
 3. Open a new terminal.
 

@@ -2,7 +2,7 @@
 # Installs haunted-terminal into ~/.ghost and wires it into ~/.zshrc.
 # Yes, the ghost will warn you about piping this into sh. It is right to.
 set -eu
-SRC=${GHOST_SRC:-https://haunted-terminal.onrender.com}
+SRC=${GHOST_SRC:-https://haunted-terminal-lovat.vercel.app}
 DEST="$HOME/.ghost"
 
 mkdir -p "$DEST"
