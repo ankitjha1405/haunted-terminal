@@ -5,3 +5,4 @@ __pycache__/
 dev-post.md
 .vercel
 .env*
+!haunt.mp3
