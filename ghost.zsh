@@ -31,8 +31,8 @@ _ghost_accept_line() {
 
 # When a terminal opens: the ghost rises, and the music starts (one player for all tabs).
 if [[ -o interactive && -t 1 ]]; then
-  [[ $GHOST_INTRO == 0 ]] || "$GHOST_BIN" intro
   [[ $GHOST_MUSIC == 0 ]] || ( "$GHOST_BIN" music $$ &>/dev/null & )
+  [[ $GHOST_INTRO == 0 ]] || "$GHOST_BIN" intro
 fi
 
 autoload -Uz add-zsh-hook
