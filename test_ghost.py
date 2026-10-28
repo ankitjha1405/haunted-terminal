@@ -66,6 +66,12 @@ class TestGhost(unittest.TestCase):
         self.assertTrue(all(len(line) == 50 for line in plain))
         self.assertIn("@", "".join(plain))
 
+    def test_banner_is_a_clean_box(self):
+        for cols in (70, 80, 120):
+            widths = {len(re.sub(r"\033\[[0-9;]*m", "", line)) for line in ghost.banner(cols)}
+            self.assertEqual(widths, {min(cols, 80)}, cols)
+        self.assertEqual(len(ghost.banner(66)), 1)  # too narrow: one line instead
+
     def test_compose_writes_a_loop(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "haunt.wav")

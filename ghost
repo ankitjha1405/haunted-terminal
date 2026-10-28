@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import wave
 
@@ -178,8 +179,124 @@ def intro(seconds=3.2, fps=24):
         pass
     finally:
         out.write("\033[2J\033[H\033[?25h")
-        out.write(f"\033[38;5;141m  👻 haunted-terminal\033[0m{DIM}  something lives in this shell now{RESET}\n\n")
+        out.write("\n".join(banner(cols)) + "\n\n")
         out.flush()
+
+
+# --- the welcome card: neon jack-o'-lantern style, like a CLI's start screen ---
+
+AUTHOR = "Ankit Kumar"
+GITHUB = "github.com/ankitjha1405"
+LINKEDIN = ""  # filled in by the author
+
+FONT = {  # 3-row block letters
+    "H": ["█ █", "█▀█", "▀ ▀"], "A": ["█▀█", "█▀█", "▀ ▀"], "U": ["█ █", "█ █", "▀▀▀"],
+    "N": ["█▄ █", "█ ▀█", "▀  ▀"], "T": ["▀█▀", " █ ", " ▀ "], "E": ["█▀▀", "█▀▀", "▀▀▀"],
+    "D": ["█▀▄", "█ █", "▀▀ "], "R": ["█▀█", "█▀▄", "▀ ▀"], "M": ["█▄ ▄█", "█ ▀ █", "▀   ▀"],
+    "I": ["█", "█", "▀"], "L": ["█  ", "█  ", "▀▀▀"], " ": ["  ", "  ", "  "],
+}
+PUMPKIN = [
+    r"     ,_/     ",
+    r"  .-'   '-.  ",
+    r" / /\   /\ \ ",
+    r"|     ^     |",
+    r" \ \/\/\/\/ / ",
+    r"  '-.___.-'  ",
+]
+NEON = [(255, 140, 0), (255, 40, 160), (160, 80, 255)]  # pumpkin orange to magenta to violet
+
+
+def _fg(rgb):
+    return "\033[38;2;%d;%d;%dm" % rgb
+
+
+def _neon(x):
+    """Colour at position 0..1 along the orange-magenta-violet gradient."""
+    a, b, t = (NEON[0], NEON[1], x * 2) if x < 0.5 else (NEON[1], NEON[2], x * 2 - 1)
+    return tuple(int(a[k] + (b[k] - a[k]) * t) for k in range(3))
+
+
+def title_rows(text):
+    rows = ["", "", ""]
+    for ch in text:
+        for r in range(3):
+            rows[r] += FONT[ch][r] + " "
+    return rows
+
+
+def _gemma_awake():
+    u = urllib.parse.urlsplit(URL)
+    try:
+        with urllib.request.urlopen(f"{u.scheme}://{u.netloc}/health", timeout=0.3):
+            return True
+    except Exception:
+        return False
+
+
+def banner(cols):
+    """The welcome card as lines of text. Every line has the same visible width."""
+    w = min(cols, 80) - 2  # inner width
+    if w < 68:  # the block-letter title is 65 wide
+        return [f"\033[38;5;141m  👻 haunted-terminal\033[0m{DIM}  something lives in this shell now{RESET}"]
+    rnd = random.Random()
+    rows = []  # each row: list of (text, rgb or None)
+
+    def sky():
+        line = [" "] * w
+        for _ in range(4):
+            x = rnd.randrange(2, w - 4)
+            line[x:x + 3] = "⌒v⌒" if rnd.random() < 0.5 else " ✦ "
+        return [("".join(line), (110, 80, 150))]
+
+    rows.append(sky())
+    rows.append([])
+    t = title_rows("HAUNTED TERMINAL")
+    pad = (w - len(t[0])) // 2
+    for r in t:
+        rows.append([(" " * pad, None)] + [(c, _neon(i / len(r))) for i, c in enumerate(r)])
+    rows.append([(" " * ((w - 34) // 2) + "something lives in this shell now", (150, 130, 170))])
+    rows.append([])
+
+    awake = _gemma_awake()
+    music = os.environ.get("GHOST_MUSIC") != "0"
+    home = os.path.expanduser("~")
+    cwd = os.getcwd().replace(home, "~", 1)
+    info = [
+        [("the ghost  ", (150, 130, 170)), ("● awake" if awake else "○ asleep", (120, 255, 150) if awake else (130, 120, 140)),
+         ("  Gemma 4 on this machine" if awake else "  start llama-server to wake it", (200, 190, 210))],
+        [("the music  ", (150, 130, 170)), ("♪ playing" if music else "♪ off", (255, 140, 0)),
+         ("  ghost hush to stop" if music else "", (200, 190, 210))],
+        [("you are in ", (150, 130, 170)), (cwd[: w - 30], (200, 190, 210))],
+        [],
+        [("press Enter on rm -rf and I will stop you", (255, 40, 160))],
+        [],
+    ]
+    for i, art in enumerate(PUMPKIN):
+        art = art.ljust(14)
+        lo, hi = len(art) - len(art.lstrip()), len(art.rstrip()) - 1
+        carved = [(c, (255, 140, 0) if k in (lo, hi) or i in (0, 1, 5) else (255, 225, 80)) for k, c in enumerate(art)]
+        rows.append([("   ", None)] + carved + [("    ", None)] + info[i])
+    rows.append([])
+    rows.append([("  " + "─ " * ((w - 4) // 2), (70, 40, 90))])
+    credit = [("  developed by ", (150, 130, 170)), (AUTHOR, (255, 140, 0)), ("  ·  ", (110, 80, 150)), (GITHUB, (160, 80, 255))]
+    if LINKEDIN:
+        credit += [("  ·  ", (110, 80, 150)), (LINKEDIN, (160, 80, 255))]
+    rows.append(credit)
+    rows.append([("░" * w, (45, 20, 60))])  # fog along the bottom
+
+    border = _fg((255, 120, 0))
+    lines = [border + "╭" + "─" * w + "╮" + RESET]
+    for n, row in enumerate(rows):
+        shade = n / len(rows)
+        bg = "\033[48;2;%d;%d;%dm" % (int(14 + 16 * shade), int(6 + 4 * shade), int(24 + 10 * shade))
+        text, width = "", 0
+        for seg, rgb in row:
+            seg = seg[: w - width]  # never let text push the border out
+            text += (_fg(rgb) if rgb else "") + seg
+            width += len(seg)
+        lines.append(border + "│" + bg + text + " " * max(0, w - width) + RESET + border + "│" + RESET)
+    lines.append(border + "╰" + "─" * w + "╯" + RESET)
+    return lines
 
 
 # --- the music: a looping drone, wind and a detuned music box, composed here so nothing is licensed ---
