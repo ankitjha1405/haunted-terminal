@@ -284,12 +284,15 @@ def music(shell_pid):
     player = [afplay, "-v", "0.6", track] if afplay else [shutil.which("paplay") or "aplay", track]
     try:
         while any_shell():
+            started = time.time()
             p = subprocess.Popen(player, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             while p.poll() is None:
                 if not any_shell():
                     p.terminate()
                     break
-                time.sleep(1)
+                time.sleep(0.2)
+            if time.time() - started < 1:
+                time.sleep(5)  # the track won't play: retry slowly instead of spinning
     finally:
         os.unlink(lock)
 
