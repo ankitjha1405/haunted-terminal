@@ -120,7 +120,7 @@
       <div class="feature"><span class="tag">Gemma 4 · local</span><h3>Whispers about your commands</h3><p>The ghost of a programmer who died in 1987 mid-COBOL migration. One cold, jealous line, about one command in three.</p></div>
       <div class="feature"><span class="tag">instant · no AI</span><h3>Stops you before disaster</h3><p><code>rm -rf</code>, force pushes, <code>git reset --hard</code>, <code>DROP TABLE</code>, <code>curl | sh</code>. Plain pattern matching, so it is instant and never guesses.</p></div>
       <div class="feature"><span class="tag">one player for all tabs</span><h3>A haunting soundtrack</h3><p>Loops while any haunted tab is open and stops when the last one closes. <code>ghost hush</code> silences it.</p></div>
-      <div class="feature"><span class="tag">say · ElevenLabs</span><h3>A voice from the other side</h3><p>The ghost can speak its lines aloud: the offline macOS whisper, or an ElevenLabs voice.</p></div>
+      <div class="feature"><span class="tag">ElevenLabs sound effects</span><h3>Things that go bump</h3><p>Every few commands, something in the room: a whispered boo, a wolf howling, a witch cackling, chains dragging. Made once, then cached.</p></div>
       <div class="feature"><span class="tag">offline · free · private</span><h3>Nothing leaves your laptop</h3><p>The model runs through llama.cpp on your machine. No account, no API bill, no logs on someone else's server.</p></div>
       <div class="feature"><span class="tag">fails silent</span><h3>Never in your way</h3><p>No model running? The ghost stays quiet. One Python file, standard library only.</p></div>
     </div>
@@ -154,8 +154,9 @@ echo 'source ~/.ghost/ghost.zsh' >> ~/.zshrc</div>
           <tr><td><code>GHOST_INTRO</code></td><td>on</td><td><code>0</code> skips the rising ghost and the welcome card.</td></tr>
           <tr><td><code>GHOST_MUSIC</code></td><td>on</td><td><code>0</code> turns the soundtrack off.</td></tr>
           <tr><td><code>GHOST_CHANCE</code></td><td>0.35</td><td>How often the ghost comments. <code>1</code> means every command.</td></tr>
-          <tr><td><code>GHOST_VOICE</code></td><td>off</td><td><code>say</code> or <code>elevenlabs</code>.</td></tr>
-          <tr><td><code>ELEVENLABS_API_KEY</code></td><td></td><td>Needed for the ElevenLabs voice.</td></tr>
+          <tr><td><code>ELEVENLABS_API_KEY</code></td><td></td><td>Turns on the scares: horror sounds every 1 to 3 commands.</td></tr>
+          <tr><td><code>GHOST_SCARES</code></td><td>on</td><td><code>0</code> turns the scares off.</td></tr>
+          <tr><td><code>GHOST_VOICE</code></td><td>off</td><td><code>say</code> reads ghost lines in the macOS whisper.</td></tr>
           <tr><td><code>GHOST_URL</code></td><td>local llama-server</td><td>Any OpenAI-compatible endpoint.</td></tr>
         </tbody>
       </table>

@@ -18,7 +18,13 @@ _ghost_precmd() {
   [[ -n $_ghost_last ]] || return
   "$GHOST_BIN" speak $code "$_ghost_last"
   _ghost_last=
+  # Every 1 to 3 commands (2 on average), something in the room makes a sound.
+  if [[ -n $ELEVENLABS_API_KEY && $GHOST_SCARES != 0 ]] && (( --_ghost_scare_in <= 0 )); then
+    ( "$GHOST_BIN" scare &>/dev/null & )
+    _ghost_scare_in=$(( RANDOM % 3 + 1 ))
+  fi
 }
+_ghost_scare_in=2
 
 # Before a risky command runs, the ghost asks you to confirm.
 _ghost_accept_line() {

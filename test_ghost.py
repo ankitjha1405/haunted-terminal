@@ -88,6 +88,19 @@ class TestGhost(unittest.TestCase):
                 f.write("999999")  # a player that died without cleaning up
             self.assertTrue(ghost._take_lock(lock))
 
+    def test_scare_needs_a_key_or_a_cached_sound(self):
+        with tempfile.TemporaryDirectory() as d:
+            ghost.CACHE = d
+            key = os.environ.pop("ELEVENLABS_API_KEY", None)
+            try:
+                self.assertIsNone(ghost.scare_path("wolf"))
+                os.makedirs(os.path.join(d, "scares"))
+                open(os.path.join(d, "scares", "wolf.mp3"), "wb").close()
+                self.assertTrue(ghost.scare_path("wolf").endswith("wolf.mp3"))
+            finally:
+                if key:
+                    os.environ["ELEVENLABS_API_KEY"] = key
+
     def test_speak_is_silent_without_server(self):
         ghost.URL = "http://127.0.0.1:9/nothing"
         ghost.CHANCE = 1.0
