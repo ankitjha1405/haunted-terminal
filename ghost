@@ -64,8 +64,9 @@ def redact(command):
     return command
 
 RISKY = [
-    (r"\brm\s+-\w*(rf|fr)\w*\b", "rm -rf"),
-    (r"\bgit\s+push\b.*\s(-f|--force)\b", "a force push"),
+    # a recursive flag and a force flag anywhere in the same rm: -rf, -r -f, --recursive --force
+    (r"\brm\b(?=[^|;&]*\s(-\w*r\w*|--recursive)\b)(?=[^|;&]*\s(-\w*f\w*|--force)\b)", "rm -rf"),
+    (r"\bgit\s+push\b.*\s((-f|--force)\b|\+\w)", "a force push"),
     (r"\bgit\s+reset\s+--hard\b", "git reset --hard"),
     (r"\bgit\s+clean\s+-\w*f", "git clean"),
     (r"\bdd\s+.*\bof=/dev/", "dd onto a disk"),

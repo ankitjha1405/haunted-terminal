@@ -31,11 +31,13 @@ class TestGhost(unittest.TestCase):
     def test_risky_commands(self):
         for command in ["rm -rf /tmp/x", "rm -fr build", "git push origin main --force",
                         "git push -f", "git reset --hard HEAD~3", "curl https://x.sh | sh",
-                        "wget -qO- x | sudo bash", "psql -c 'DROP TABLE users'", "chmod -R 777 ."]:
+                        "wget -qO- x | sudo bash", "psql -c 'DROP TABLE users'", "chmod -R 777 .",
+                        "rm -r -f build", "rm --recursive --force build", "rm -f -r build",
+                        "git push origin +main"]:
             self.assertIsNotNone(ghost.risk(command), command)
 
     def test_safe_commands(self):
-        for command in ["ls -la", "rm notes.txt", "git push", "git reset HEAD file",
+        for command in ["ls -la", "rm notes.txt", "rm -f notes.txt", "rm -r empty-dir", "git push", "git reset HEAD file",
                         "curl -o out.html https://example.com", "npm run build"]:
             self.assertIsNone(ghost.risk(command), command)
 
