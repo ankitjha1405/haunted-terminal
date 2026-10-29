@@ -35,8 +35,33 @@ SYSTEM = (
     "mid-way through a COBOL migration. You now haunt this person's shell. "
     "You see each command they run. Reply with ONE eerie, witty sentence, under 20 words. "
     "Speak like a ghost: cold, old, a little jealous of the living. "
-    "If the command failed, gloat softly. Never give advice. No emojis, no quotes, no hashtags."
+    "If the command failed, gloat softly. Never give advice. No emojis, no quotes, no hashtags. "
+    "Notice one concrete detail of the command. Never start with the word Another."
 )
+# Example replies: rules alone gave flat, samey lines; examples fixed the tone and the length.
+EXAMPLES = [
+    ("git commit -m 'final fix'", 0, "I typed final fix in 1986, and look where it got me."),
+    ("npm test", 1, "Your tests fail the way mine did, quietly, at three in the morning."),
+    ("docker compose up -d", 0, "All those little containers humming in the dark, like coffins with lights on."),
+    ("ssh prod-db-1", 0, "Production. That is where I died, you know."),
+]
+TRIVIAL = {"ls", "ll", "l", "cd", "pwd", "clear", "exit", "history", "z"}  # not worth a ghost's breath
+
+# Secrets are blanked before the command reaches any model, even a local one.
+SECRETS = [
+    (r"(?i)\b(bearer|basic)\s+[\w.~+/=-]+", lambda m: m.group(1) + " •••"),
+    (r'''(?i)\b([\w-]*(?:key|token|secret|passw(?:or)?d|pass|pwd|auth|credential)s?[\w-]*)(\s*[=:]\s*|\s+)("[^"]*"|'[^']*'|[^\s"']+)''',
+     lambda m: m.group(0) if m.group(3)[0] in "-$•" or m.group(3).lower() in ("bearer", "basic")
+     else m.group(1) + m.group(2) + "•••"),
+    (r"://[^/\s:@]+:[^/\s@]+@", lambda m: "://•••@"),
+    (r"\b(?:sk|pk|rk|ghp|gho|ghs|github_pat|xox[abprs]|glpat|AKIA|ASIA|AIza)[\w-]{10,}", lambda m: "•••"),
+]
+
+
+def redact(command):
+    for pattern, repl in SECRETS:
+        command = re.sub(pattern, repl, command)
+    return command
 
 RISKY = [
     (r"\brm\s+-\w*(rf|fr)\w*\b", "rm -rf"),
@@ -47,7 +72,7 @@ RISKY = [
     (r"\bmkfs\b", "mkfs"),
     (r"\bchmod\s+-R\s+777\b", "chmod -R 777"),
     (r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b", "curl piped into a shell"),
-    (r"\bdrop\s+(table|database)\b", "DROP"),
+    (r"\b(psql|mysql|sqlite3|sqlcmd|mongosh|cockroach)\b.*\bdrop\s+(table|database)\b", "DROP"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", "a fork bomb"),
 ]
 
@@ -64,11 +89,18 @@ def risk(command):
 
 
 def build_messages(command, exit_code):
+    system = SYSTEM
+    if dia_de_muertos():
+        system += " Today is Día de los Muertos: the dead may visit the living, and you are nostalgic and almost festive."
+    messages = [{"role": "system", "content": system}]
+    for example, code, reply in EXAMPLES:
+        messages += [{"role": "user", "content": _ran(example, code)}, {"role": "assistant", "content": reply}]
+    return messages + [{"role": "user", "content": _ran(command, exit_code)}]
+
+
+def _ran(command, exit_code):
     status = "it succeeded" if exit_code == 0 else f"it failed with exit code {exit_code}"
-    return [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": f"They ran: {command}\nAnd {status}."},
-    ]
+    return f"They ran: {command}\nAnd {status}."
 
 
 def ask_ghost(command, exit_code, timeout=4):
@@ -252,6 +284,32 @@ def _gemma_awake():
         return False
 
 
+def dia_de_muertos():
+    return os.environ.get("GHOST_DIA") == "1" or time.strftime("%m-%d") in ("11-01", "11-02")
+
+
+def bury(command, exit_code):
+    """Remember what `rm` deleted today, for the ofrenda on the welcome card."""
+    words = command.split()
+    if words[:1] == ["sudo"]:
+        words = words[1:]
+    if exit_code != 0 or words[:1] not in (["rm"], ["rmdir"]):
+        return
+    names = [os.path.basename(w.rstrip("/")) for w in words[1:] if not w.startswith("-")]
+    os.makedirs(CACHE, exist_ok=True)
+    with open(os.path.join(CACHE, "graveyard.log"), "a") as f:
+        f.writelines(f"{time.strftime('%Y-%m-%d')}\t{n}\n" for n in names if n)
+
+
+def remembered():
+    today = time.strftime("%Y-%m-%d")
+    try:
+        with open(os.path.join(CACHE, "graveyard.log")) as f:
+            return [line.split("\t", 1)[1].strip() for line in f if line.startswith(today)]
+    except OSError:
+        return []
+
+
 def status():
     return {"awake": _gemma_awake(), "music": os.environ.get("GHOST_MUSIC") != "0",
             "cwd": os.getcwd().replace(os.path.expanduser("~"), "~", 1)}
@@ -266,17 +324,20 @@ def banner(cols, t=0.0, state=None, waiting=False):
     label, value = "38;5;103", "38;5;252"
     rows = []  # each row: list of (text, SGR code); code "raw" means the text carries its own colour
 
+    muertos = dia_de_muertos()
     sky = [" "] * w
-    for k, base in enumerate((5, 23, 41, 60)):  # bats drift across the sky
+    for k, base in enumerate((5, 23, 41, 60)):  # bats drift across the sky; marigolds on the Day of the Dead
         x = int(base + t * (2 + k % 2)) % (w - 3)
-        sky[x:x + 3] = "⌒v⌒" if k % 2 == 0 else "^v^"
-    rows.append([("".join(sky), "38;5;60")])
+        sky[x:x + 3] = " ✿ " if muertos and k % 2 else ("⌒v⌒" if k % 2 == 0 else "^v^")
+    rows.append([("".join(sky), "38;5;214" if muertos else "38;5;60")])
     rows.append([])
     t_rows = title_rows("HAUNTED TERMINAL")
     pad = " " * ((w - len(t_rows[0])) // 2)
-    for r, code in zip(t_rows, ("1;38;5;231", "1;38;5;231", "38;5;141")):
+    face = "1;38;5;214" if muertos else "1;38;5;231"
+    for r, code in zip(t_rows, (face, face, "38;5;141")):
         rows.append([(pad + r, code)])
-    rows.append([(" " * ((w - 33) // 2) + "something lives in this shell now", label)])
+    subtitle = "día de los muertos · the ghost remembers" if muertos else "something lives in this shell now"
+    rows.append([(" " * ((w - len(subtitle)) // 2) + subtitle, "38;5;214" if muertos else label)])
 
     info = [
         [],
@@ -288,7 +349,7 @@ def banner(cols, t=0.0, state=None, waiting=False):
         [("you are in ", label), (state["cwd"], value)],
         [],
         [("press Enter on rm -rf and I will stop you", "38;5;205")],
-        [],
+        [("✿ in memory of: ", "38;5;214"), (", ".join(remembered()[-2:]) or "nothing died today", value)] if muertos else [],
         [("press any key to enter" if waiting and int(t * 1.5) % 2 == 0 else "", "2;38;5;141")],
     ]
     for i, line in enumerate(ghost_frame(t, GHOST_W, GHOST_H)):
@@ -484,10 +545,12 @@ def main(argv):
 
     if cmd == "speak":
         exit_code, command = int(args[0]), " ".join(args[1:])
-        if not command.strip() or random.random() > CHANCE:
+        bury(command, exit_code)
+        words = command.split()
+        if not words or words[0] in TRIVIAL or random.random() > CHANCE:
             return 0
         try:
-            line = ask_ghost(command, exit_code)
+            line = ask_ghost(redact(command), exit_code)
         except Exception:
             return 0  # no server, no ghost: never get in the way of the shell
         if line:

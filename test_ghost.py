@@ -44,7 +44,7 @@ class TestGhost(unittest.TestCase):
         self.assertEqual(ghost.main(["ghost", "check", "rm -rf ~"]), 1)
 
     def test_prompt_mentions_failure(self):
-        user = ghost.build_messages("make", 2)[1]["content"]
+        user = ghost.build_messages("make", 2)[-1]["content"]
         self.assertIn("make", user)
         self.assertIn("exit code 2", user)
 
@@ -100,6 +100,48 @@ class TestGhost(unittest.TestCase):
             finally:
                 if key:
                     os.environ["ELEVENLABS_API_KEY"] = key
+
+    def test_redact_hides_secrets(self):
+        cases = {
+            "export OPENAI_API_KEY=sk-abc123def456ghi789": "export OPENAI_API_KEY=•••",
+            "mysql --password=hunter2 db": "mysql --password=••• db",
+            'curl -H "Authorization: Bearer eyJ.abc" https://api': 'curl -H "Authorization: Bearer •••" https://api',
+            "git clone https://me:ghp_abcdefghijklmnop1234@github.com/x/y": "git clone https://•••@github.com/x/y",
+            "gpg --passphrase s3cret -d f.gpg": "gpg --passphrase ••• -d f.gpg",
+            'export TOKEN="abc def"': "export TOKEN=•••",
+            "npm test": "npm test",
+            "ssh-keygen -t ed25519": "ssh-keygen -t ed25519",
+            "echo $GITHUB_TOKEN": "echo $GITHUB_TOKEN",
+        }
+        for command, expected in cases.items():
+            self.assertEqual(ghost.redact(command), expected)
+
+    def test_drop_only_counts_inside_a_database_client(self):
+        self.assertIsNotNone(ghost.risk("psql -c 'DROP TABLE users'"))
+        self.assertIsNone(ghost.risk("grep -r 'DROP TABLE' migrations"))
+        self.assertIsNone(ghost.risk("echo 'drop table' > notes.txt"))
+
+    def test_graveyard_and_day_of_the_dead_card(self):
+        with tempfile.TemporaryDirectory() as d:
+            ghost.CACHE = d
+            ghost.bury("rm -rf old-project/", 0)
+            ghost.bury("sudo rm notes.txt", 0)
+            ghost.bury("rm kept.txt", 1)  # failed: nothing died
+            ghost.bury("ls", 0)
+            self.assertEqual(ghost.remembered(), ["old-project", "notes.txt"])
+            os.environ["GHOST_DIA"] = "1"
+            try:
+                card = [re.sub(r"\033\[[0-9;]*m", "", line) for line in ghost.banner(80, 1.0, {"awake": True, "music": True, "cwd": "~"})]
+            finally:
+                del os.environ["GHOST_DIA"]
+            self.assertEqual({len(line) for line in card}, {80})
+            self.assertTrue(any("in memory of: old-project, notes.txt" in line for line in card))
+
+    def test_examples_come_before_the_real_command(self):
+        messages = ghost.build_messages("make", 2)
+        self.assertEqual(messages[0]["role"], "system")
+        self.assertEqual(messages[-1]["content"], "They ran: make\nAnd it failed with exit code 2.")
+        self.assertEqual(len(messages), 2 + 2 * len(ghost.EXAMPLES))
 
     def test_speak_is_silent_without_server(self):
         ghost.URL = "http://127.0.0.1:9/nothing"

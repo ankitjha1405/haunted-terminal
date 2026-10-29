@@ -18,6 +18,10 @@ Every ghost line above is real Gemma output from a laptop, about half a second e
 3. **The welcome card.** The same ghost floats beside your status (is Gemma awake, is the music on, where you are) until you press a key.
 4. **It stays.** After about one command in three, it whispers a line about what you just did. Every few commands, something in the room makes a sound: a whispered *boo*, a wolf howling, a witch cackling. Before a dangerous command runs, it asks you to confirm.
 
+On **November 1 and 2**, for Día de los Muertos, the card turns marigold and the ghost keeps an ofrenda for the files you deleted that day. Set `GHOST_DIA=1` to see it any day.
+
+![The Día de los Muertos welcome card](site/dia-de-muertos.png)
+
 | It warns before | |
 |---|---|
 | `rm -rf`, `git clean -f` | deleting things for good |
@@ -80,6 +84,7 @@ ELEVENLABS_API_KEY=your-key
 | `ELEVENLABS_API_KEY` | | Turns on the scares: horror sounds every 1 to 3 commands. |
 | `GHOST_SCARES` | on | `0` turns the scares off even with a key. |
 | `GHOST_VOICE` | off | `say` reads every ghost line aloud in the offline macOS whisper. |
+| `GHOST_DIA` | off | `1` shows the Día de los Muertos card on any day. |
 | `GHOST_URL` | `http://127.0.0.1:8080/v1/chat/completions` | Any OpenAI-compatible endpoint. |
 
 The scares are made once with the [ElevenLabs sound effects API](https://elevenlabs.io/docs/api-reference/text-to-sound-effects/convert) from seven fixed descriptions, then cached in `~/.cache/ghost/scares/`. After that, nothing is sent anywhere. ElevenLabs never sees your commands.
@@ -103,7 +108,26 @@ haunt.mp3                          the soundtrack
 - **The welcome card** redraws in place 20 times a second until a key is pressed. It uses only 256-colour codes, because macOS Terminal.app can't show 24-bit colour.
 - **The music** has one player for every tab, guarded by an atomic lock file. Each shell registers its process ID, and the player stops when none of them are alive. If `haunt.mp3` is missing, `ghost` composes its own 48-second loop: a D drone with a sour E-flat, filtered-noise wind, and a detuned music box. Every frequency fits a whole number of cycles, so the loop has no seam.
 - **The scares** count down in the shell: after each command, a counter drops, and at zero `ghost scare` plays a random sound in the background and resets the counter to 1, 2 or 3. The seven sounds are generated once and cached, so after the first few they cost no credits and work offline.
+- **Secrets never reach the model.** Before a command goes to Gemma, anything that looks like a secret becomes `•••`: `KEY=value` and `--password=...` style arguments, `Bearer` tokens, `https://user:token@` URLs, and GitHub, Slack and AWS key formats. Commands like `ls` and `cd` are skipped entirely.
+- **The prompt uses four example replies.** Rules alone gave flat, samey lines; examples fixed the tone and length (see the measurements below).
 - **It never gets in your way.** If llama-server is down, `ghost speak` returns in milliseconds and says nothing.
+
+## Measured
+
+[`eval_ghost.py`](eval_ghost.py) runs 40 everyday commands through the ghost three times and checks every reply, plus the safety check against 19 dangerous commands and 19 harmless look-alikes. Before and after adding the example replies (Gemma 4 E2B Q8, MacBook):
+
+| Check | Before | After |
+|---|---|---|
+| Replied, under 20 words, no advice, no emoji | 100% | 100% |
+| Didn't open with "Another" | 82% | 97% |
+| One sentence | 82% | 88% |
+| Median reply time | 0.7 s | 0.7 s |
+| Dangerous commands caught | 19/19 | 19/19 |
+| Harmless look-alikes left alone | 17/19 | 19/19 |
+
+```sh
+python3 eval_ghost.py --runs 3
+```
 
 ## Why it runs locally
 
@@ -112,7 +136,7 @@ A terminal sees everything: file paths, hostnames, branch names, half-typed secr
 ## Development
 
 ```sh
-python3 -m unittest -v test_ghost.py   # 11 tests: risk patterns, prompt, fake llama-server, frames, card, music lock
+python3 -m unittest -v test_ghost.py   # 15 tests: risk patterns, redaction, prompt, fake llama-server, frames, cards, music lock
 zsh -n ghost.zsh                       # syntax check
 ```
 
