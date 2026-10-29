@@ -464,12 +464,15 @@ def _take_lock(lock):
     for _ in range(2):
         try:
             fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, str(os.getpid()).encode())
-            os.close(fd)
+            try:
+                os.write(fd, str(os.getpid()).encode())
+            finally:
+                os.close(fd)
             return True
         except FileExistsError:
             try:
-                holder = int(open(lock).read())
+                with open(lock) as f:
+                    holder = int(f.read())
             except (OSError, ValueError):
                 return False  # another player is writing its pid right now
             if alive(holder):
