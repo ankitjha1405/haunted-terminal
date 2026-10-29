@@ -69,5 +69,6 @@ Status: open, needs the owner: make the repo public (it is an open-source challe
 - `ghost check 'echo "rm -rf is dangerous"'` warns. A false positive on the safe side; harmless.
 - `find . -delete` is not caught. Not in the README's list of warned commands, so not a bug as specified.
 - `ghost:471` opens the music lock file without closing it (`ResourceWarning` in tests). Cosmetic.
+  Fixed in 3820484 (ENG-8): `with open(lock)` block; the lock fd is also closed if `os.write` raises.
 - Sound and the Gemma whisper need a manual pass in a real terminal: open a tab, run a few commands,
   confirm the rise animation, music start/stop on last tab close, and the `y` prompt on `rm -rf`.
