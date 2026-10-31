@@ -21,6 +21,8 @@ This is my entry for the [DEV Hacktoberfest Open-Source AI Challenge, Week 4: Gh
 | Best Use of ElevenLabs | Seven horror sounds made with the ElevenLabs sound effects API play every one to three commands. They are generated once and cached, so they work offline. |
 | Best Use of GitHub Copilot | GitHub Actions runs the unit tests and a zsh syntax check on every push ([ci.yml](.github/workflows/ci.yml)). |
 
+**Demo video (2 min, sound on):** [youtu.be/Vtko3aHe9m8](https://youtu.be/Vtko3aHe9m8)
+
 Built from scratch during the challenge, October 28 to 31, 2026. Any commit after the deadline (October 31, 11:59 PM PDT) will be listed here.
 
 ## What happens when you open a terminal
