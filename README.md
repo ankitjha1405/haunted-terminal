@@ -11,6 +11,18 @@ The ghost is [Gemma 4](https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF), run
 
 Every ghost line above is real Gemma output from a laptop, about half a second each.
 
+## Hacktoberfest 2026 · Week 4: Ghost in the Machine
+
+This is my entry for the [DEV Hacktoberfest Open-Source AI Challenge, Week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26). The week asks for a spooky build with open-source AI at its core. Here the ghost *is* the open model: Gemma 4, running on your own laptop, gives the shell a personality, remembers what you deleted on Día de los Muertos, and sits next to the one guard that has to be exact, the warning before `rm -rf`.
+
+| Prize category | How this project uses it |
+|---|---|
+| Best Use of Gemma | Gemma 4 E2B is the ghost. It runs locally through llama.cpp with thinking turned off and example-driven prompting, measured before and after (see [Measured](#measured)). |
+| Best Use of ElevenLabs | Seven horror sounds made with the ElevenLabs sound effects API play every one to three commands. They are generated once and cached, so they work offline. |
+| Best Use of GitHub Copilot | GitHub Actions runs the unit tests and a zsh syntax check on every push ([ci.yml](.github/workflows/ci.yml)). |
+
+Built from scratch during the challenge, October 28 to 31, 2026. Any commit after the deadline (October 31, 11:59 PM PDT) will be listed here.
+
 ## What happens when you open a terminal
 
 1. **The ghost rises.** A full-screen ASCII ghost fades in, bobs, blinks and fades out.
